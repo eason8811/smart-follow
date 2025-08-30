@@ -12,6 +12,7 @@
     <groupId>xin.eason</groupId>
     <artifactId>smart-follow</artifactId>
     <version>1.0.0</version>
+    <packaging>pom</packaging>
     <name>smart-follow</name>
     <description>smart-follow</description>
 
@@ -20,6 +21,13 @@
 
         </developer>
     </developers>
+    <modules>
+        <module>smart-follow-infrastructure</module>
+        <module>smart-follow-domain</module>
+        <module>smart-follow-trigger</module>
+        <module>smart-follow-app</module>
+        <module>smart-follow-api</module>
+    </modules>
 
     <properties>
         <java.version>17</java.version>
