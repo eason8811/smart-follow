@@ -1,3 +1,12 @@
+# OKX API 配置
+okx:
+  # 斜杠结尾的 base-url
+  base-url: "https://www.okx.com/"
+  # 从环境变量引入, 默认置空
+  access-key: ${OKX_ACCESS_KEY:}
+  secret-key: ${OKX_SECRET_KEY:}
+  passphrase: ${OKX_PASSPHRASE:}
+
 spring:
   application:
     name: smart-follow
