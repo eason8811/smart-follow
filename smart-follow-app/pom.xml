@@ -31,7 +31,7 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Retrofit2 -->
+        <!-- Retrofit2 for external REST client configuration in app config -->
         <dependency>
             <groupId>com.squareup.retrofit2</groupId>
             <artifactId>retrofit</artifactId>
