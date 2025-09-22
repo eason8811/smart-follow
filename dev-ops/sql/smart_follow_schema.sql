@@ -26,22 +26,51 @@ CREATE TABLE `exchange_project_snapshot`
     `id`             BIGINT                              NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `project_id`     BIGINT                              NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
     `ts`             TIMESTAMP(3)                        NOT NULL COMMENT '快照时间',
+    `data_ver`       CHAR(14)                            NULL COMMENT '来源数据版本号, 如 20231129213200 (OKX 榜单每10分钟一版, 仅保留最近5版)',
+    `source`         VARCHAR(32)                         NOT NULL DEFAULT 'OKX_RANK' COMMENT '快照来源：OKX_RANK / OKX_DETAIL / COMPUTED 等, 区分不同来源的同一时刻快照',
     `visibility`     ENUM ('VISIBLE','MISSING','HIDDEN') NOT NULL COMMENT '可见性 (VISIBLE/MISSING/HIDDEN) ',
-    `equity`         DECIMAL(36, 18)                     NULL COMMENT '权益/AUM (USDT口径) ',
-    `followers`      INT                                 NULL COMMENT '跟随人数',
-    `positions_open` INT                                 NULL COMMENT '持仓笔数',
-    `fees_daily`     DECIMAL(36, 18)                     NULL COMMENT '当日费用',
-    `pnl_daily`      DECIMAL(36, 18)                     NULL COMMENT '当日PnL',
-    `raw`            JSON                                NOT NULL COMMENT '原始快照JSON',
-    `aum_usd`        DECIMAL(36, 18) GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.aum')) AS DECIMAL(36, 18))) STORED COMMENT '生成列：从raw($.aum)提取的AUM(USDT)数值, 便于筛选/排序',
+    `equity`         DECIMAL(36, 18)                     NULL COMMENT '权益/AUM (USDT口径), 部分来源可能缺失',
+    `followers`      INT                                 NULL COMMENT '跟随人数 (OKX 榜单 ranks[].copyTraderNum)',
+    `positions_open` INT                                 NULL COMMENT '持仓笔数 (仅对包含持仓信息的来源有效)',
+    `fees_daily`     DECIMAL(36, 18)                     NULL COMMENT '当日费用 (仅对包含费用信息的来源有效)',
+    `pnl_daily`      DECIMAL(36, 18)                     NULL COMMENT '当日 PnL (仅对包含收益信息的来源有效)',
+    `raw`            JSON                                NOT NULL COMMENT '原始快照 JSON; 按 source 存放对应来源的原文 (便于审计与回放)',
+
+    -- 常用排序/筛选项做生成列, 避免每次查询解析 JSON
+    `aum_usd`        DECIMAL(36, 18)
+        GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.aum')) AS DECIMAL(36, 18))) STORED
+        COMMENT '生成列：raw($.aum) → AUM(USDT), 便于筛选/排序',
+    `win_ratio`      DECIMAL(18, 6)
+        GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.winRatio')) AS DECIMAL(18, 6))) STORED
+        COMMENT '生成列：raw($.winRatio) → 胜率 (0.1=10%) ',
+    `pnl_ratio_90d`  DECIMAL(18, 6)
+        GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.pnlRatio')) AS DECIMAL(18, 6))) STORED
+        COMMENT '生成列：raw($.pnlRatio) → 近90日收益率',
+    `pnl_90d_usd`    DECIMAL(36, 18)
+        GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.pnl')) AS DECIMAL(36, 18))) STORED
+        COMMENT '生成列：raw($.pnl) → 近90日收益 (USDT) ',
+
     PRIMARY KEY (`id`),
+
+    -- 幂等唯一键：同一项目 + 同一时间 + 同一来源 只允许一条快照
+    UNIQUE KEY `uk_proj_ts_src` (`project_id`, `ts`, `source`),
+
     KEY `idx_proj_ts` (`project_id`, `ts`) USING BTREE,
-    KEY `idx_snapshot_aum` (`aum_usd`) USING BTREE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_0900_ai_ci COMMENT ='每次采集的时序状态, 亦用于检测消失 (missing) 与幸存者偏差修正'
+    KEY `idx_snapshot_aum` (`aum_usd`) USING BTREE,
+    KEY `idx_snapshot_win_ratio` (`win_ratio`) USING BTREE,
+    KEY `idx_snapshot_pnl_ratio` (`pnl_ratio_90d`) USING BTREE
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_0900_ai_ci
+    COMMENT = '每次采集的项目时序快照 (按来源区分) , 用于画像/排序与可见性监测'
     PARTITION BY RANGE COLUMNS (`ts`) (
+        -- 已存在历史分区：覆盖 2025-08
         PARTITION p2025_08 VALUES LESS THAN ('2025-09-01'),
+        -- 预创建未来分区：覆盖 2025-09、2025-10
+        PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
+        PARTITION p2025_10 VALUES LESS THAN ('2025-11-01'),
+        -- 兜底最大分区：所有更未来的时间写入此分区, 后续再 REORGANIZE 拆分
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
 
@@ -147,14 +176,14 @@ CREATE TABLE `crawl_task`
 
     PRIMARY KEY (`id`),
 
-    /* 幂等唯一键：同一时间窗口内，同一意图只创建一次 */
+    /* 幂等唯一键：同一时间窗口内, 同一意图只创建一次 */
     UNIQUE KEY `uk_task_intent` (`exchange`, `api_name`, `params_hash`, `window_key`),
 
     /* 调度常用索引：根据状态和锁过期时间快速扫描可抢占任务 */
     KEY `idx_status_lockeduntil` (`status`, `locked_until`),
     KEY `idx_exchange_api_status` (`exchange`, `api_name`, `status`),
 
-    /* 健壮性检查（MySQL 8.0.16+才强制执行；旧版仅作为文档） */
+    /* 健壮性检查 (MySQL 8.0.16+才强制执行; 旧版仅作为文档)  */
     CHECK (`next_page` >= 1),
     CHECK (`total_page` IS NULL OR `total_page` >= 0),
     CHECK (`lock_ttl_sec` IS NULL OR `lock_ttl_sec` > 0)

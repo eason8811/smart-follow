@@ -1,6 +1,8 @@
 package xin.eason.smartfollow.domain.model.aggregate.crawl;
 
 import lombok.*;
+import xin.eason.smartfollow.types.enums.Exchange;
+import xin.eason.smartfollow.types.enums.TaskStatus;
 
 import java.time.Instant;
 
@@ -24,43 +26,6 @@ import java.time.Instant;
 public class CrawlTask {
     // =========================== 不变字段, 构造后不改 ===========================
 
-    /**
-     * 交易所标识
-     * <ul>
-     *     <li>
-     *         OKX: 欧易
-     *     </li>
-     *     <li>
-     *         BINANCE: 币安
-     *     </li>
-     * </ul>
-     */
-    public enum Exchange {OKX, BINANCE}
-
-    /**
-     * 任务状态
-     * <ul>
-     *     <li>
-     *         PENDING: 等待执行
-     *     </li>
-     *     <li>
-     *         RUNNING: 正在执行
-     *     </li>
-     *     <li>
-     *         DONE: 已完成
-     *     </li>
-     *     <li>
-     *         FAILED: 失败
-     *     </li>
-     *     <li>
-     *         EXPIRED: 过期
-     *     </li>
-     *     <li>
-     *         CANCELLED: 已取消
-     *     </li>
-     * </ul>
-     */
-    public enum Status {PENDING, RUNNING, DONE, FAILED, EXPIRED, CANCELLED}
 
     /**
      * 数据库主键ID
@@ -100,7 +65,7 @@ public class CrawlTask {
      * 任务状态；默认值: PENDING
      */
     @Builder.Default
-    private Status status = Status.PENDING;
+    private TaskStatus status = TaskStatus.PENDING;
     /**
      * 重试次数；默认值: 0
      */
@@ -143,7 +108,7 @@ public class CrawlTask {
      * @param now 当前时间戳
      */
     public void ensureRunnable(Instant now) {
-        if (status != Status.RUNNING)
+        if (status != TaskStatus.RUNNING)
             throw new IllegalStateException("任务状态不为 RUNNING, 当前状态: " + status);
         if (!hasValidLock(now))
             throw new IllegalStateException("锁已过期或无锁");
@@ -170,7 +135,7 @@ public class CrawlTask {
      */
     public void acquire(String workerId, Instant now, int ttlSec) {
         ensureNotTerminal();
-        ensureStatus(Status.PENDING, Status.RUNNING);
+        ensureStatus(TaskStatus.PENDING, TaskStatus.RUNNING);
         ensureTtl(ttlSec);
         if (hasValidLock(now) && !workerId.equals(this.lockedBy))
             throw new IllegalStateException("已经被其他人锁定, 当前锁持有者: " + lockedBy);
@@ -178,8 +143,8 @@ public class CrawlTask {
         this.lockedAt = now;
         this.lockTtlSec = ttlSec;
         // 如果当前任务状态为 PENDING, 则置为 RUNNING
-        if (this.status == Status.PENDING)
-            this.status = Status.RUNNING;
+        if (this.status == TaskStatus.PENDING)
+            this.status = TaskStatus.RUNNING;
     }
 
     /**
@@ -217,7 +182,7 @@ public class CrawlTask {
      * @param pageJustProcessed 刚处理完的页码
      */
     public void onPageProcessed(int pageJustProcessed) {
-        ensureStatus(Status.RUNNING);
+        ensureStatus(TaskStatus.RUNNING);
         if (pageJustProcessed != nextPage)
             throw new IllegalArgumentException("刚处理完的页码 '" + pageJustProcessed + "' 必须等于下一页页码 " + nextPage);
         // 可选：若 totalPage 已知，校验范围
@@ -248,7 +213,7 @@ public class CrawlTask {
         if (!isFinished()) {
             throw new IllegalStateException("还有未处理的页码, 不能标记为 DONE 即将要处理的页码: '" + nextPage + "', 总页数: '" + totalPage + "'");
         }
-        this.status = Status.DONE;
+        this.status = TaskStatus.DONE;
         releaseLock();
     }
 
@@ -257,7 +222,7 @@ public class CrawlTask {
      */
     public void markExpired() {
         ensureNotTerminal();
-        this.status = Status.EXPIRED;
+        this.status = TaskStatus.EXPIRED;
         releaseLock();
     }
 
@@ -266,7 +231,7 @@ public class CrawlTask {
      */
     public void cancel() {
         ensureNotTerminal();
-        this.status = Status.CANCELLED;
+        this.status = TaskStatus.CANCELLED;
         releaseLock();
     }
 
@@ -278,7 +243,7 @@ public class CrawlTask {
      * @param err 错误描述
      */
     public void recordError(String err) {
-        ensureStatus(Status.RUNNING);
+        ensureStatus(TaskStatus.RUNNING);
         this.attempts++;
         this.lastError = err;
     }
@@ -290,7 +255,7 @@ public class CrawlTask {
      */
     public void markFailed(String err) {
         ensureNotTerminal();
-        this.status = Status.FAILED;
+        this.status = TaskStatus.FAILED;
         this.lastError = err;
         releaseLock();
     }
@@ -303,8 +268,8 @@ public class CrawlTask {
      * @return 是否处于终态
      */
     private boolean isTerminal() {
-        return status == Status.DONE || status == Status.FAILED
-                || status == Status.EXPIRED || status == Status.CANCELLED;
+        return status == TaskStatus.DONE || status == TaskStatus.FAILED
+                || status == TaskStatus.EXPIRED || status == TaskStatus.CANCELLED;
     }
 
     /**
@@ -320,8 +285,8 @@ public class CrawlTask {
      *
      * @param allowed 允许的状态列表
      */
-    private void ensureStatus(Status... allowed) {
-        for (Status s : allowed)
+    private void ensureStatus(TaskStatus... allowed) {
+        for (TaskStatus s : allowed)
             if (status == s)
                 return;
         throw new IllegalStateException("当前状态不允许该操作, status=" + status);

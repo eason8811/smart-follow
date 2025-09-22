@@ -1,6 +1,7 @@
 package xin.eason.smartfollow.domain.model.entity.crawl;
 
 import lombok.*;
+import xin.eason.smartfollow.types.enums.Exchange;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -21,10 +22,6 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // 兼容 ORM
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CrawlLog {
-    /**
-     * 交易所
-     */
-    public enum Exchange {OKX, BINANCE}
 
     /**
      * 主键 ID
