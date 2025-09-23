@@ -1,1 +1,0 @@
-package xin.eason.smartfollow.domain.model.aggregate.observation;
