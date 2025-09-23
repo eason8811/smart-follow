@@ -4,7 +4,9 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import xin.eason.smartfollow.types.enums.Exchange;
-import xin.eason.smartfollow.types.exceptions.AppException;
+
+import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotBlank;
+import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNull;
 
 /**
  * 项目 ID 值对象
@@ -30,10 +32,8 @@ public final class ProjectKey {
      * @param externalId {@link #externalId}
      */
     private ProjectKey(Exchange exchange, String externalId) {
-        if (exchange == null)
-            throw AppException.of("exchange 不能为空");
-        if (externalId == null || externalId.isBlank())
-            throw AppException.of("externalId 不能为空");
+        requireNotNull(exchange, "exchange 不能为空");
+        requireNotBlank(externalId, "externalId 不能为空");
         this.exchange = exchange;
         this.externalId = externalId;
     }
