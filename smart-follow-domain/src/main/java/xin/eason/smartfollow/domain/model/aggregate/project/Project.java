@@ -9,7 +9,9 @@ import xin.eason.smartfollow.types.exceptions.AppException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Objects;
+
+import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotBlank;
+import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNull;
 
 /**
  * 项目的主档聚合根
@@ -139,13 +141,6 @@ public class Project {
     }
 
     // ===== 私有校验/助手 =====
-    private static void requireNotBlank(String s, String msg) {
-        if (s == null || s.isBlank()) throw AppException.of(msg);
-    }
-
-    private static void requireNotNull(Object o, String msg) {
-        if (Objects.isNull(o)) throw AppException.of(msg);
-    }
 
     private static Instant ensureMonotonic(Instant oldTs, Instant now) {
         if (oldTs == null) return now;

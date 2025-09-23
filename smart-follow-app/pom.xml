@@ -40,6 +40,12 @@
             <groupId>com.squareup.retrofit2</groupId>
             <artifactId>converter-jackson</artifactId>
         </dependency>
+        <dependency>
+            <groupId>xin.eason</groupId>
+            <artifactId>smart-follow-types</artifactId>
+            <version>1.0.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
