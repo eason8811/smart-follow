@@ -6,6 +6,7 @@ import lombok.Builder;
 import xin.eason.smartfollow.domain.model.vo.project.ProjectKey;
 import xin.eason.smartfollow.types.enums.SnapshotSource;
 import xin.eason.smartfollow.types.enums.Visibility;
+import xin.eason.smartfollow.types.exceptions.IllegalParamException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,6 +20,9 @@ import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNul
 @Getter
 @ToString
 public class ProjectSnapshot {
+
+    private static final long MYSQL_TIMESTAMP_MIN_MS = 1_000L;               // 1970-01-01 00:00:01.000
+    private static final long MYSQL_TIMESTAMP_MAX_MS = 2_147_483_647_999L;   // 2038-01-19 03:14:07.999
 
     // 业务键: 项目唯一标识 + 时间 + 来源 (数据库层面有 uk(project_id, ts, source) 幂等)
     /**
@@ -145,6 +149,9 @@ public class ProjectSnapshot {
      */
     private static Instant ensureMillis(Instant t) {
         requireNotNull(t, "snapshotTs 不能为空");
-        return Instant.ofEpochMilli(t.toEpochMilli()); // 去掉纳秒，统一毫秒精度
+        long ms = t.toEpochMilli(); // 统一毫秒
+        if (ms < MYSQL_TIMESTAMP_MIN_MS || ms > MYSQL_TIMESTAMP_MAX_MS)
+            throw IllegalParamException.of("snapshotTs 超出可存储范围: " + t);
+        return Instant.ofEpochMilli(ms);
     }
 }
