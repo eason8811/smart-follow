@@ -77,29 +77,57 @@ CREATE TABLE `exchange_project_snapshot`
 -- 3. exchange_project_trade —— 项目交易/持仓明细[按月分区] 记录每个项目中的交易明细
 CREATE TABLE `exchange_project_trade`
 (
-    `id`           BIGINT                             NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `project_id`   BIGINT                             NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
-    `symbol`       VARCHAR(64)                        NOT NULL COMMENT '交易标的 (如BTC-USDT或合约代码) ',
-    `side`         ENUM ('LONG','SHORT','BUY','SELL') NOT NULL COMMENT '方向：LONG/SHORT (合约方向) 或BUY/SELL (现货方向) ',
-    `ts_open`      TIMESTAMP(3)                       NOT NULL COMMENT '开仓时间',
-    `ts_close`     TIMESTAMP(3)                       NULL COMMENT '平仓时间 (可为空) ',
-    `entry_price`  DECIMAL(36, 18)                    NULL COMMENT '入场价格',
-    `exit_price`   DECIMAL(36, 18)                    NULL COMMENT '出场价格',
-    `qty`          DECIMAL(36, 18)                    NULL COMMENT '数量/张数',
-    `leverage`     DECIMAL(18, 8)                     NULL COMMENT '杠杆 (若适用) ',
-    `pnl`          DECIMAL(36, 18)                    NULL COMMENT '实际PnL (展示口径) ',
-    `mae`          DECIMAL(36, 18)                    NULL COMMENT '最大不利变动 (复制口径估算) ',
-    `mfe`          DECIMAL(36, 18)                    NULL COMMENT '最大有利变动',
-    `fees`         DECIMAL(36, 18)                    NULL COMMENT '手续费等成本',
-    `duration_sec` INT                                NULL COMMENT '持仓时长 (秒) ',
+    `id`                  BIGINT                                               NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `project_id`          BIGINT                                               NOT NULL COMMENT '逻辑外键，指向 exchange_project.id',
+    `symbol`              VARCHAR(64)                                          NOT NULL COMMENT '交易标的 (如 BTC-USDT 或 BTC-USDT-SWAP) ',
+    `inst_type`           ENUM ('SPOT','SWAP','FUTURES','MARGIN')              NULL COMMENT '产品类型 (可为空) ',
+    `side`                ENUM ('LONG','SHORT','BUY','SELL')                   NOT NULL COMMENT '方向：LONG/SHORT(合约) 或 BUY/SELL(现货)',
+    `ord_type`            ENUM ('MARKET','LIMIT','POST_ONLY','FOK','IOC')      NULL COMMENT '订单类型 (可为空) ',
+    `leverage`            DECIMAL(18, 8)                                       NULL COMMENT '杠杆 (若适用) ',
+
+    `ts_open`             TIMESTAMP(3)                                         NOT NULL COMMENT '开仓/触发时间',
+    `ts_filled`           TIMESTAMP(3)                                         NULL COMMENT '完全成交时间 (可空) ',
+    `ts_close`            TIMESTAMP(3)                                         NULL COMMENT '平仓时间 (可空) ',
+
+    `entry_price`         DECIMAL(36, 18)                                      NULL COMMENT '入场价格',
+    `exit_price`          DECIMAL(36, 18)                                      NULL COMMENT '出场价格',
+    `qty`                 DECIMAL(36, 18)                                      NOT NULL COMMENT '数量/张数 (>0) ',
+
+    `fees`                DECIMAL(36, 18)                                      NULL COMMENT '手续费等成本 (可为负) ',
+    `fee_ccy`             VARCHAR(16)                                          NULL     DEFAULT 'USDT' COMMENT '手续费币种',
+    `pnl`                 DECIMAL(36, 18)                                      NULL COMMENT '实现盈亏 (可为负) ',
+    `pnl_ccy`             VARCHAR(16)                                          NULL     DEFAULT 'USDT' COMMENT 'PnL 计价币',
+
+    `status`              ENUM ('OPEN','PARTIALLY_CLOSED','CLOSED','CANCELED') NOT NULL DEFAULT 'CLOSED' COMMENT '成交/持仓状态',
+    `source`              VARCHAR(32)                                          NOT NULL DEFAULT 'OKX' COMMENT '来源：OKX/BINANCE/REPLAY/IMPORT 等',
+    `external_trade_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧成交ID (优先用作幂等键) ',
+    `external_order_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧订单ID (可空) ',
+    `source_payload_hash` CHAR(64)                                             NOT NULL COMMENT '来源原文的 SHA-256 (十六进制) ，用于幂等与审计',
+
+    -- 可选：生成列，自动计算持仓时长 (秒) 
+    `duration_sec`        INT GENERATED ALWAYS AS (
+        IF(`ts_close` IS NULL, NULL, TIMESTAMPDIFF(SECOND, `ts_open`, `ts_close`))
+        ) STORED COMMENT '持仓时长 (秒，生成列) ',
+
     PRIMARY KEY (`id`),
+
+    -- 幂等唯一键 (两级) ：优先用外部成交ID；无外部ID时用自然键 (注意统一毫秒与小数规范) 
+    UNIQUE KEY `uk_proj_source_tradeid` (`project_id`, `source`, `external_trade_id`),
+    UNIQUE KEY `uk_natural_composite` (`project_id`, `symbol`, `side`, `ts_open`, `entry_price`, `qty`, `source`),
+
     KEY `idx_proj_open` (`project_id`, `ts_open`) USING BTREE,
-    KEY `idx_proj_close` (`project_id`, `ts_close`) USING BTREE
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_0900_ai_ci COMMENT ='风格识别与可复制收益计算的主数据'
+    KEY `idx_proj_close` (`project_id`, `ts_close`) USING BTREE,
+    KEY `idx_proj_symbol_open` (`project_id`, `symbol`, `ts_open`) USING BTREE,
+    KEY `idx_external_trade_id` (`external_trade_id`)
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_0900_ai_ci
+    COMMENT = '项目交易/持仓明细 (事实表) 驱动影子/实盘, 收益复算与报表'
     PARTITION BY RANGE COLUMNS (`ts_open`) (
         PARTITION p2025_08 VALUES LESS THAN ('2025-09-01'),
+        PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
+        PARTITION p2025_10 VALUES LESS THAN ('2025-11-01'),
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
 
