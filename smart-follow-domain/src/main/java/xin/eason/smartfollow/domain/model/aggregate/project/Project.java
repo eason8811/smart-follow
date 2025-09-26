@@ -74,7 +74,7 @@ public class Project {
     public static Project newFromBrief(ProjectKey key, ProjectBriefVO brief, Instant now) {
         requireNotNull(key, "key 不能为空");
         requireNotBlank(brief.getExternalId(), "externalId 不能为空");
-        String name = (brief.getName() == null || brief.getName().isBlank()) ? key.getExternalId() : brief.getName();
+        String name = (brief.getName() == null || brief.getName().isBlank()) ? key.externalId() : brief.getName();
         String ccy = (brief.getBaseCurrency() == null || brief.getBaseCurrency().isBlank())
                 ? "USDT" : brief.getBaseCurrency().toUpperCase();
 

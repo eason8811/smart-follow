@@ -3,9 +3,9 @@ package xin.eason.smartfollow.types.enums;
 /**
  * 快照来源
  * <ul>
- *     <li>OKX_RANK: 榜单</li>
- *     <li>OKX_DETAIL: 详情/规则</li>
- *     <li>COMPUTED: 系统计算指标</li>
+ *     <li><code>OKX_RANK</code>: 榜单</li>
+ *     <li><code>OKX_DETAIL</code>: 详情/规则</li>
+ *     <li><code>COMPUTED</code>: 系统计算指标</li>
  * </ul>
  */
 public enum SnapshotSource {

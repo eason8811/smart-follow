@@ -3,12 +3,8 @@ package xin.eason.smartfollow.types.enums;
 /**
  * 交易所标识
  * <ul>
- *     <li>
- *         OKX: 欧易
- *     </li>
- *     <li>
- *         BINANCE: 币安
- *     </li>
+ *     <li><code>OKX</code>: 欧易</li>
+ *     <li><code>BINANCE</code>: 币安</li>
  * </ul>
  */
 public enum Exchange {

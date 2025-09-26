@@ -5,9 +5,9 @@ import xin.eason.smartfollow.types.exceptions.AppException;
 /**
  * 项目可见性状态:
  * <ul>
- *     <li>VISIBLE: 本次采集可见</li>
- *     <li>MISSING: 短期不可见 (如最近若干版 dataVer 缺席) </li>
- *     <li>HIDDEN : 被隐藏/下线 (详情接口明确或长期缺席确认) </li>
+ *     <li><code>VISIBLE</code>: 本次采集可见</li>
+ *     <li><code>MISSING</code>: 短期不可见 (如最近若干版 dataVer 缺席) </li>
+ *     <li><code>HIDDEN</code> : 被隐藏/下线 (详情接口明确或长期缺席确认) </li>
  * </ul>
  */
 public enum Visibility {

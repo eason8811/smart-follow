@@ -2,17 +2,17 @@
 CREATE TABLE `exchange_project`
 (
     `id`                 BIGINT                              NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `exchange`           ENUM ('OKX','BINANCE')              NOT NULL COMMENT '交易所标识, 取值：OKX/BINANCE',
-    `leader_external_id` VARCHAR(191)                        NOT NULL COMMENT '平台侧项目/领航员稳定外部ID (逻辑唯一) ',
+    `exchange`           ENUM ('OKX','BINANCE')              NOT NULL COMMENT '交易所标识, 取值, OKX/BINANCE',
+    `leader_external_id` VARCHAR(191)                        NOT NULL COMMENT '平台侧项目/领航员稳定外部ID (逻辑唯一)',
     `name`               VARCHAR(255)                        NULL COMMENT '项目/领航员名称',
-    `status`             VARCHAR(64)                         NULL COMMENT '运行状态 (如RUNNING/CLOSED/PAUSED等, 文本) ',
+    `status`             VARCHAR(64)                         NULL COMMENT '运行状态 (如RUNNING/CLOSED/PAUSED等, 文本)',
     `first_seen`         TIMESTAMP(3)                        NOT NULL COMMENT '首次被系统发现时间',
     `last_seen`          TIMESTAMP(3)                        NOT NULL COMMENT '最近一次被看到时间',
-    `last_visibility`    ENUM ('VISIBLE','MISSING','HIDDEN') NOT NULL DEFAULT 'VISIBLE' COMMENT '最近可见性：VISIBLE/MISSING/HIDDEN',
-    `min_copy_cost`      DECIMAL(36, 18)                     NULL COMMENT '最小可复制保证金/成本 (USDT口径) ',
-    `base_currency`      VARCHAR(16)                         NULL     DEFAULT 'USDT' COMMENT '计价币 (默认USDT) ',
-    `data_quality_score` FLOAT                               NULL     DEFAULT 1.0 COMMENT '数据质量分 (0~1) ',
-    `extra`              JSON                                NOT NULL COMMENT '平台特有原始字段 (JSON) ',
+    `last_visibility`    ENUM ('VISIBLE','MISSING','HIDDEN') NOT NULL DEFAULT 'VISIBLE' COMMENT '最近可见性, VISIBLE/MISSING/HIDDEN',
+    `min_copy_cost`      DECIMAL(36, 18)                     NULL COMMENT '最小可复制保证金/成本 (USDT口径)',
+    `base_currency`      VARCHAR(16)                         NULL     DEFAULT 'USDT' COMMENT '计价币 (默认USDT)',
+    `data_quality_score` FLOAT                               NULL     DEFAULT 1.0 COMMENT '数据质量分 (0~1)',
+    `extra`              JSON                                NOT NULL COMMENT '平台特有原始字段 (JSON)',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_exchange_leader` (`exchange`, `leader_external_id`),
     KEY `idx_exchange` (`exchange`) USING BTREE
@@ -27,8 +27,8 @@ CREATE TABLE `exchange_project_snapshot`
     `project_id`     BIGINT                              NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
     `ts`             TIMESTAMP(3)                        NOT NULL COMMENT '快照时间',
     `data_ver`       CHAR(14)                            NULL COMMENT '来源数据版本号, 如 20231129213200 (OKX 榜单每10分钟一版, 仅保留最近5版)',
-    `source`         VARCHAR(32)                         NOT NULL DEFAULT 'OKX_RANK' COMMENT '快照来源：OKX_RANK / OKX_DETAIL / COMPUTED 等, 区分不同来源的同一时刻快照',
-    `visibility`     ENUM ('VISIBLE','MISSING','HIDDEN') NOT NULL COMMENT '可见性 (VISIBLE/MISSING/HIDDEN) ',
+    `source`         VARCHAR(32)                         NOT NULL DEFAULT 'OKX_RANK' COMMENT '快照来源, OKX_RANK / OKX_DETAIL / COMPUTED 等, 区分不同来源的同一时刻快照',
+    `visibility`     ENUM ('VISIBLE','MISSING','HIDDEN') NOT NULL COMMENT '可见性 (VISIBLE/MISSING/HIDDEN)',
     `equity`         DECIMAL(36, 18)                     NULL COMMENT '权益/AUM (USDT口径), 部分来源可能缺失',
     `followers`      INT                                 NULL COMMENT '跟随人数 (OKX 榜单 ranks[].copyTraderNum)',
     `positions_open` INT                                 NULL COMMENT '持仓笔数 (仅对包含持仓信息的来源有效)',
@@ -39,20 +39,20 @@ CREATE TABLE `exchange_project_snapshot`
     -- 常用排序/筛选项做生成列, 避免每次查询解析 JSON
     `aum_usd`        DECIMAL(36, 18)
         GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.aum')) AS DECIMAL(36, 18))) STORED
-        COMMENT '生成列：raw($.aum) → AUM(USDT), 便于筛选/排序',
+        COMMENT '生成列, raw($.aum) → AUM(USDT), 便于筛选/排序',
     `win_ratio`      DECIMAL(18, 6)
         GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.winRatio')) AS DECIMAL(18, 6))) STORED
-        COMMENT '生成列：raw($.winRatio) → 胜率 (0.1=10%) ',
+        COMMENT '生成列, raw($.winRatio) → 胜率 (0.1=10%)',
     `pnl_ratio_90d`  DECIMAL(18, 6)
         GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.pnlRatio')) AS DECIMAL(18, 6))) STORED
-        COMMENT '生成列：raw($.pnlRatio) → 近90日收益率',
+        COMMENT '生成列, raw($.pnlRatio) → 近90日收益率',
     `pnl_90d_usd`    DECIMAL(36, 18)
         GENERATED ALWAYS AS (CAST(JSON_UNQUOTE(JSON_EXTRACT(`raw`, '$.pnl')) AS DECIMAL(36, 18))) STORED
-        COMMENT '生成列：raw($.pnl) → 近90日收益 (USDT) ',
+        COMMENT '生成列, raw($.pnl) → 近90日收益 (USDT)',
 
     PRIMARY KEY (`id`),
 
-    -- 幂等唯一键：同一项目 + 同一时间 + 同一来源 只允许一条快照
+    -- 幂等唯一键, 同一项目 + 同一时间 + 同一来源 只允许一条快照
     UNIQUE KEY `uk_proj_ts_src` (`project_id`, `ts`, `source`),
 
     KEY `idx_proj_ts` (`project_id`, `ts`) USING BTREE,
@@ -63,56 +63,63 @@ CREATE TABLE `exchange_project_snapshot`
     ENGINE = InnoDB
     DEFAULT CHARSET = utf8mb4
     COLLATE = utf8mb4_0900_ai_ci
-    COMMENT = '每次采集的项目时序快照 (按来源区分) , 用于画像/排序与可见性监测'
+    COMMENT = '每次采集的项目时序快照 (按来源区分), 用于画像/排序与可见性监测'
     PARTITION BY RANGE COLUMNS (`ts`) (
-        -- 已存在历史分区：覆盖 2025-08
+        -- 已存在历史分区, 覆盖 2025-08
         PARTITION p2025_08 VALUES LESS THAN ('2025-09-01'),
-        -- 预创建未来分区：覆盖 2025-09、2025-10
+        -- 预创建未来分区, 覆盖 2025-09、2025-10
         PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
         PARTITION p2025_10 VALUES LESS THAN ('2025-11-01'),
-        -- 兜底最大分区：所有更未来的时间写入此分区, 后续再 REORGANIZE 拆分
+        -- 兜底最大分区, 所有更未来的时间写入此分区, 后续再 REORGANIZE 拆分
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
 
--- 3. exchange_project_trade —— 项目交易/持仓明细[按月分区] 记录每个项目中的交易明细
+-- 3. exchange_project_trade —— 项目开平仓回合明细[按月分区] 记录每个项目中的交易明细
 CREATE TABLE `exchange_project_trade`
 (
+    -- 基础字段
     `id`                  BIGINT                                               NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `project_id`          BIGINT                                               NOT NULL COMMENT '逻辑外键，指向 exchange_project.id',
-    `symbol`              VARCHAR(64)                                          NOT NULL COMMENT '交易标的 (如 BTC-USDT 或 BTC-USDT-SWAP) ',
-    `inst_type`           ENUM ('SPOT','SWAP','FUTURES','MARGIN')              NULL COMMENT '产品类型 (可为空) ',
-    `side`                ENUM ('LONG','SHORT','BUY','SELL')                   NOT NULL COMMENT '方向：LONG/SHORT(合约) 或 BUY/SELL(现货)',
-    `ord_type`            ENUM ('MARKET','LIMIT','POST_ONLY','FOK','IOC')      NULL COMMENT '订单类型 (可为空) ',
-    `leverage`            DECIMAL(18, 8)                                       NULL COMMENT '杠杆 (若适用) ',
+    `project_id`          BIGINT                                               NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
+    `trade_uid`           CHAR(64)                                             NULL COMMENT '系统内回合唯一ID, 无外部ID时为合成ID（SHA-256）',
+    `symbol`              VARCHAR(64)                                          NOT NULL COMMENT '交易标的 (如 BTC-USDT 或 BTC-USDT-SWAP)',
+    `inst_type`           ENUM ('SPOT','SWAP','FUTURES','MARGIN')              NULL COMMENT '产品类型 (可为空)',
+    `side`                ENUM ('LONG','SHORT','BUY','SELL')                   NOT NULL COMMENT '方向: LONG/SHORT(合约) 或 BUY/SELL(现货)',
+    `ord_type`            ENUM ('MARKET','LIMIT','POST_ONLY','FOK','IOC')      NULL COMMENT '订单类型 (可为空)',
+    `leverage`            DECIMAL(18, 8)                                       NULL COMMENT '杠杆 (若适用)',
 
+    -- 开平仓时间
     `ts_open`             TIMESTAMP(3)                                         NOT NULL COMMENT '开仓/触发时间',
-    `ts_filled`           TIMESTAMP(3)                                         NULL COMMENT '完全成交时间 (可空) ',
-    `ts_close`            TIMESTAMP(3)                                         NULL COMMENT '平仓时间 (可空) ',
+    `ts_filled`           TIMESTAMP(3)                                         NULL COMMENT '完全成交时间 (可空)',
+    `ts_close`            TIMESTAMP(3)                                         NULL COMMENT '平仓时间 (可空)',
 
+    -- 开平仓价格以及仓位
     `entry_price`         DECIMAL(36, 18)                                      NULL COMMENT '入场价格',
     `exit_price`          DECIMAL(36, 18)                                      NULL COMMENT '出场价格',
-    `qty`                 DECIMAL(36, 18)                                      NOT NULL COMMENT '数量/张数 (>0) ',
+    `qty`                 DECIMAL(36, 18)                                      NOT NULL COMMENT '仓位 (恒正)',
 
-    `fees`                DECIMAL(36, 18)                                      NULL COMMENT '手续费等成本 (可为负) ',
+    -- 手续费和收益
+    `fees`                DECIMAL(36, 18)                                      NULL COMMENT '手续费等成本 (可为负)',
     `fee_ccy`             VARCHAR(16)                                          NULL     DEFAULT 'USDT' COMMENT '手续费币种',
-    `pnl`                 DECIMAL(36, 18)                                      NULL COMMENT '实现盈亏 (可为负) ',
+    `pnl`                 DECIMAL(36, 18)                                      NULL COMMENT '实现盈亏 (可为负)',
     `pnl_ccy`             VARCHAR(16)                                          NULL     DEFAULT 'USDT' COMMENT 'PnL 计价币',
 
+    -- 订单状态和来源
     `status`              ENUM ('OPEN','PARTIALLY_CLOSED','CLOSED','CANCELED') NOT NULL DEFAULT 'CLOSED' COMMENT '成交/持仓状态',
-    `source`              VARCHAR(32)                                          NOT NULL DEFAULT 'OKX' COMMENT '来源：OKX/BINANCE/REPLAY/IMPORT 等',
-    `external_trade_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧成交ID (优先用作幂等键) ',
-    `external_order_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧订单ID (可空) ',
-    `source_payload_hash` CHAR(64)                                             NOT NULL COMMENT '来源原文的 SHA-256 (十六进制) ，用于幂等与审计',
+    `source`              VARCHAR(32)                                          NOT NULL DEFAULT 'OKX' COMMENT '来源, OKX/BINANCE/REPLAY/IMPORT 等',
+    `external_trade_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧成交ID (优先用作幂等键)',
+    `external_order_id`   VARCHAR(191)                                         NULL COMMENT '交易所侧订单ID (一般锚定最早的开仓订单, 可空)',
+    `source_payload_hash` CHAR(64)                                             NOT NULL COMMENT '来源原文的 SHA-256 (十六进制), 用于幂等与审计',
 
-    -- 可选：生成列，自动计算持仓时长 (秒) 
+    -- 生成列, 自动计算持仓时长 (秒)
     `duration_sec`        INT GENERATED ALWAYS AS (
         IF(`ts_close` IS NULL, NULL, TIMESTAMPDIFF(SECOND, `ts_open`, `ts_close`))
-        ) STORED COMMENT '持仓时长 (秒，生成列) ',
+        ) STORED COMMENT '持仓时长 (秒, 生成列)',
 
     PRIMARY KEY (`id`),
 
-    -- 幂等唯一键 (两级) ：优先用外部成交ID；无外部ID时用自然键 (注意统一毫秒与小数规范) 
-    UNIQUE KEY `uk_proj_source_tradeid` (`project_id`, `source`, `external_trade_id`),
+    -- 幂等唯一键 (两级) 优先用外部成交ID, 无外部ID时用自然键 (注意统一毫秒与小数规范)
+    UNIQUE KEY `uk_trade_uid` (`project_id`, `trade_uid`),
+    UNIQUE KEY `uk_proj_source_trade_id` (`project_id`, `source`, `external_trade_id`),
     UNIQUE KEY `uk_natural_composite` (`project_id`, `symbol`, `side`, `ts_open`, `entry_price`, `qty`, `source`),
 
     KEY `idx_proj_open` (`project_id`, `ts_open`) USING BTREE,
@@ -131,20 +138,70 @@ CREATE TABLE `exchange_project_trade`
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
 
--- 4. tombstone —— 项目消失事件 (幸存者偏差的黑匣子)
+-- 4. exchange_project_trade_metrics —— 项目交易指标派生表 [按月分区] 记录每个项目中的交易指标派生数据
+CREATE TABLE `exchange_project_trade_metrics`
+(
+    `id`            BIGINT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `trade_id`      BIGINT          NOT NULL COMMENT '逻辑外键, 指向 exchange_project_trade.id (逻辑外键)',
+    `project_id`    BIGINT          NOT NULL COMMENT '冗余以便按项目过滤/统计 (来自 trade.project_id)',
+    `ts_open`       TIMESTAMP(3)    NOT NULL COMMENT '冗余以便与主表分区对齐 (来自 trade.ts_open)',
+
+    `source`        VARCHAR(32)     NOT NULL DEFAULT 'COMPUTED' COMMENT '指标来源, COMPUTED/BACKFILL/IMPORT 等',
+    `algo_ver`      VARCHAR(16)     NOT NULL DEFAULT 'v1' COMMENT '算法/口径版本, 用于多次重算的版本化管理',
+    `bar_interval`  VARCHAR(8)      NULL COMMENT '行情粒度, 如 1s/1m/5m/15m/1h/1d',
+    `price_source`  VARCHAR(16)     NULL COMMENT '价格口径, MID/LAST/BID/ASK',
+
+    -- MAE/MFE, 以 entry_price 为基准的百分比 (多头, 最低→mae, 最高 → mfe, 空头相反), 以及线性换算的金额口径
+    `mae_pct`       DECIMAL(18, 6)  NULL COMMENT '最大不利变动百分比 (多头, min, 空头, max, 通常为负)',
+    `mfe_pct`       DECIMAL(18, 6)  NULL COMMENT '最大有利变动百分比 (多头, max, 空头, min, 通常为正)',
+    `mae_usd`       DECIMAL(36, 18) NULL COMMENT '最大不利变动金额 (USDT 口径, 线性近似, mae_pct * entry_price * qty)',
+    `mfe_usd`       DECIMAL(36, 18) NULL COMMENT '最大有利变动金额 (USDT 口径, 线性近似, mfe_pct * entry_price * qty)',
+    `mae_ts`        TIMESTAMP(3)    NULL COMMENT '发生 MAE 的时间 (进入最大不利点的时刻)',
+    `mfe_ts`        TIMESTAMP(3)    NULL COMMENT '发生 MFE 的时间 (进入最大有利点的时刻)',
+
+    -- 扩展, 滑点, 回撤/回升, 后续若不需要可忽略写入
+    `slippage_pct`  DECIMAL(18, 6)  NULL COMMENT '滑点百分比 (成交 vs 预期)',
+    `slippage_usd`  DECIMAL(36, 18) NULL COMMENT '滑点金额 (USDT 口径)',
+    `max_dd_pct`    DECIMAL(18, 6)  NULL COMMENT '区间最大回撤百分比 (策略内口径)',
+    `max_ru_pct`    DECIMAL(18, 6)  NULL COMMENT '区间最大回升百分比 (策略内口径)',
+
+    `quality_score` FLOAT           NULL     DEFAULT 1.0 COMMENT '数据质量分 (0~1), 低于阈值可标记无效',
+    `extra`         JSON            NOT NULL COMMENT '计算上下文与参数原文 (如 bars 使用条数, 异常标记等)',
+
+    PRIMARY KEY (`id`),
+
+    -- 同一笔成交在同一算法版本 (可选还加 price_source/bar_interval) 只保留一份指标
+    UNIQUE KEY `uk_trade_ver` (`trade_id`, `algo_ver`),
+
+    KEY `idx_proj_open` (`project_id`, `ts_open`) USING BTREE,
+    KEY `idx_mae_pct` (`mae_pct`) USING BTREE,
+    KEY `idx_mfe_pct` (`mfe_pct`) USING BTREE
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_0900_ai_ci
+    COMMENT = '成交派生指标 (MAE/MFE/滑点/回撤等), 可多版本重算, 与事实表通过 trade_id 关联'
+    PARTITION BY RANGE COLUMNS (`ts_open`) (
+        PARTITION p2025_08 VALUES LESS THAN ('2025-09-01'),
+        PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
+        PARTITION p2025_10 VALUES LESS THAN ('2025-11-01'),
+        PARTITION pMAX VALUES LESS THAN (MAXVALUE)
+        );
+
+-- 5. tombstone —— 项目消失事件 (幸存者偏差的黑匣子)
 CREATE TABLE `tombstone`
 (
     `project_id`       BIGINT       NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
     `disappeared_at`   TIMESTAMP(3) NOT NULL COMMENT '第一次从可见转为缺失/隐藏的时间',
-    `last_snapshot_id` BIGINT       NULL COMMENT '消失前最后一次快照ID (逻辑外键) ',
-    `reason`           VARCHAR(255) NULL COMMENT '可选原因 (如下架/清退/改名等) ',
+    `last_snapshot_id` BIGINT       NULL COMMENT '消失前最后一次快照ID (逻辑外键)',
+    `reason`           VARCHAR(255) NULL COMMENT '可选原因 (如下架/清退/改名等)',
     PRIMARY KEY (`project_id`, `disappeared_at`),
     KEY `idx_last_snap` (`last_snapshot_id`) USING BTREE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='记录可见性由visible→missing/hidden的事件';
 
--- 5. crawl_log —— 抓取调用日志 (观测与去重)
+-- 6. crawl_log —— 抓取调用日志 (观测与去重)
 CREATE TABLE `crawl_log`
 (
     `id`                  BIGINT                 NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -176,7 +233,7 @@ CREATE TABLE `crawl_log`
     COMMENT ='采集日志(不可变事实), 支持304/短路、审计与统计';
 
 
--- 6. crawl_task —— 抓取任务, 做意图级 (任务级) 去重, 避免单一任务时间超长重入,
+-- 7. crawl_task —— 抓取任务, 做意图级 (任务级) 去重, 避免单一任务时间超长重入,
 DROP TABLE IF EXISTS `crawl_task`;
 CREATE TABLE `crawl_task`
 (
@@ -195,7 +252,7 @@ CREATE TABLE `crawl_task`
     `locked_by`    VARCHAR(191)           NULL COMMENT '当前锁持有者',
     `locked_at`    TIMESTAMP(3)           NULL COMMENT '加锁时间(UTC)',
     `lock_ttl_sec` INT                    NULL COMMENT '锁TTL(秒)',
-    /* 便于查询过期锁：生成列 */
+    /* 便于查询过期锁, 生成列 */
     `locked_until` TIMESTAMP(3) GENERATED ALWAYS AS
         (IF(`locked_at` IS NULL OR `lock_ttl_sec` IS NULL, NULL,
             TIMESTAMPADD(SECOND, `lock_ttl_sec`, `locked_at`))) STORED COMMENT '锁过期时间=locked_at+ttl',
@@ -204,30 +261,30 @@ CREATE TABLE `crawl_task`
 
     PRIMARY KEY (`id`),
 
-    /* 幂等唯一键：同一时间窗口内, 同一意图只创建一次 */
+    /* 幂等唯一键, 同一时间窗口内, 同一意图只创建一次 */
     UNIQUE KEY `uk_task_intent` (`exchange`, `api_name`, `params_hash`, `window_key`),
 
-    /* 调度常用索引：根据状态和锁过期时间快速扫描可抢占任务 */
+    /* 调度常用索引, 根据状态和锁过期时间快速扫描可抢占任务 */
     KEY `idx_status_lockeduntil` (`status`, `locked_until`),
     KEY `idx_exchange_api_status` (`exchange`, `api_name`, `status`),
 
-    /* 健壮性检查 (MySQL 8.0.16+才强制执行; 旧版仅作为文档)  */
+    /* 健壮性检查 (MySQL 8.0.16+才强制执行; 旧版仅作为文档) */
     CHECK (`next_page` >= 1),
     CHECK (`total_page` IS NULL OR `total_page` >= 0),
     CHECK (`lock_ttl_sec` IS NULL OR `lock_ttl_sec` > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci
-    COMMENT ='爬取任务聚合：意图级去重/锁/状态机/分页';
+    COMMENT ='爬取任务聚合, 意图级去重/锁/状态机/分页';
 
--- 新增 2025-09 月分区 (< '2025-10-01') 示例：exchange_project_snapshot (列 ts) 
+-- 新增 2025-09 月分区 (< '2025-10-01') 示例, exchange_project_snapshot (列 ts) 
 ALTER TABLE `exchange_project_snapshot`
     REORGANIZE PARTITION pMAX INTO (
         PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
 
--- 新增 2025-09 月分区 (< '2025-10-01') 示例：exchange_project_trade (列 ts_open) 
+-- 新增 2025-09 月分区 (< '2025-10-01') 示例, exchange_project_trade (列 ts_open) 
 ALTER TABLE `exchange_project_trade`
     REORGANIZE PARTITION pMAX INTO (
         PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),

@@ -36,10 +36,10 @@ import java.util.function.Function;
  * - 暴露 Retrofit Bean（绑定 Jackson 转换器）；
  * - 暴露一个通用的 API 工厂 Bean（Function<Class<?>, Object>），用于通过 retrofit.create(...) 创建任意 API 接口代理。
  */
+@Slf4j
 @Configuration
 @EnableConfigurationProperties(OkxProperties.class)
 @RequiredArgsConstructor
-@Slf4j
 public class OkxRetrofitConfig {
 
     /**
@@ -218,9 +218,9 @@ public class OkxRetrofitConfig {
      */
     private long fetchOkxServerTs() throws IOException {
         String baseUrl = safe(okxProperties.getBaseUrl());
-        if (!baseUrl.endsWith("/")) {
+        if (!baseUrl.endsWith("/"))
             baseUrl = baseUrl + "/";
-        }
+
         String url = baseUrl + "api/v5/public/time";
 
         OkHttpClient client = new OkHttpClient.Builder()
@@ -234,16 +234,16 @@ public class OkxRetrofitConfig {
                 .build();
 
         try (Response resp = client.newCall(request).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) {
+            if (!resp.isSuccessful() || resp.body() == null)
                 throw new IOException("非预期的响应状态码: " + (resp.code()));
-            }
+
             String json = resp.body().string();
             // 预期返回：{"code":"0","data":[{"ts":"1700000000000"}], ...}
             JsonNode root = objectMapper.readTree(json);
             JsonNode data = root.path("data");
-            if (!data.isArray() || data.isEmpty()) {
+            if (!data.isArray() || data.isEmpty())
                 throw new IOException("响应结构无效：缺少 data 数组");
-            }
+
             String tsStr = data.get(0).path("ts").asText();
             return Long.parseLong(tsStr);
         }

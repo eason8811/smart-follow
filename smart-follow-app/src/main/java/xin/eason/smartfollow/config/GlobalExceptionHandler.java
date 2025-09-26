@@ -20,8 +20,8 @@ import java.util.Map;
  * 职责：集中捕获并处理应用中抛出的常见异常, 统一日志输出与响应内容。
  * 当前版本：先处理最常见的 RuntimeException, 并输出中文日志与中文响应信息。
  */
-@RestControllerAdvice
 @Slf4j
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     /**
