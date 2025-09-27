@@ -2,7 +2,6 @@ package xin.eason.smartfollow.types.utils;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nls;
-import xin.eason.smartfollow.types.exceptions.AppException;
 import xin.eason.smartfollow.types.exceptions.IllegalParamException;
 
 import java.util.Objects;
