@@ -67,7 +67,7 @@ CREATE TABLE `exchange_project_snapshot`
     PARTITION BY RANGE COLUMNS (`ts`) (
         -- 已存在历史分区, 覆盖 2025-08
         PARTITION p2025_08 VALUES LESS THAN ('2025-09-01'),
-        -- 预创建未来分区, 覆盖 2025-09、2025-10
+        -- 预创建未来分区, 覆盖 2025-09, 2025-10
         PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
         PARTITION p2025_10 VALUES LESS THAN ('2025-11-01'),
         -- 兜底最大分区, 所有更未来的时间写入此分区, 后续再 REORGANIZE 拆分
@@ -80,7 +80,7 @@ CREATE TABLE `exchange_project_trade`
     -- 基础字段
     `id`                  BIGINT                                               NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `project_id`          BIGINT                                               NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
-    `trade_uid`           CHAR(64)                                             NULL COMMENT '系统内回合唯一ID, 无外部ID时为合成ID（SHA-256）',
+    `trade_uid`           CHAR(64)                                             NULL COMMENT '系统内回合唯一ID, 无外部ID时为合成ID(SHA-256) ',
     `symbol`              VARCHAR(64)                                          NOT NULL COMMENT '交易标的 (如 BTC-USDT 或 BTC-USDT-SWAP)',
     `inst_type`           ENUM ('SPOT','SWAP','FUTURES','MARGIN')              NULL COMMENT '产品类型 (可为空)',
     `side`                ENUM ('LONG','SHORT','BUY','SELL')                   NOT NULL COMMENT '方向: LONG/SHORT(合约) 或 BUY/SELL(现货)',
@@ -230,7 +230,7 @@ CREATE TABLE `crawl_log`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci
-    COMMENT ='采集日志(不可变事实), 支持304/短路、审计与统计';
+    COMMENT ='采集日志(不可变事实), 支持304/短路, 审计与统计';
 
 
 -- 7. crawl_task —— 抓取任务, 做意图级 (任务级) 去重, 避免单一任务时间超长重入,
@@ -290,3 +290,57 @@ ALTER TABLE `exchange_project_trade`
         PARTITION p2025_09 VALUES LESS THAN ('2025-10-01'),
         PARTITION pMAX VALUES LESS THAN (MAXVALUE)
         );
+
+-- 读模型, 项目日聚合 (用作30/90天窗口的增量砖块) 
+CREATE TABLE `rm_project_day`
+(
+    `project_id`  BIGINT          NOT NULL COMMENT '项目ID (逻辑外键, 指向 exchange_project.id, 不建物理外键, 便于补数与容错)',
+    `day`         DATE            NOT NULL COMMENT '统计自然日 (UTC), 形如 2025-10-14, 同一项目+同一天唯一',
+    -- 来自 snapshot 的日度聚合
+    `pnl_daily`   DECIMAL(36, 18) NULL COMMENT '当日快照累计净盈亏 (USDT口径), 来自 exchange_project_snapshot 当日最后一条快照 pnl_daily 值',
+    `equity_avg`  DECIMAL(36, 18) NULL COMMENT '当日权益/AUM 的平均值, 用于 ROI 分母的稳健估计, 计算方式为 AUM 值的时间间隔加权平均',
+    -- 来自 trade / metrics 的日度聚合(按 ts_open/ts_close 落在该日内的回合口径) 
+    `trade_cnt`   INT             NOT NULL DEFAULT 0 COMMENT '当日回合数量 (开平仓回合条数)',
+    `win_cnt`     INT             NOT NULL DEFAULT 0 COMMENT '当日盈利回合数量 (pnl>0 的回合数)',
+    `pnl_sum`     DECIMAL(36, 18) NULL COMMENT '当日回合盈亏合计 (USDT口径), 来自 exchange_project_trade.pnl 的求和',
+    `mae_p50`     DECIMAL(18, 6)  NULL COMMENT '当日回合 MAE 百分比的中位数 (多头负为不利, 空头同口径对称, 后端计算后回写)',
+    `mae_p95`     DECIMAL(18, 6)  NULL COMMENT '当日回合 MAE 百分比的95分位 (极端不利偏移的稳健上界)',
+    `maxdd_p95`   DECIMAL(18, 6)  NULL COMMENT '当日区间最大回撤百分比的95分位 (路径层面跌幅风险的高分位)',
+    `dur_p50_sec` INT             NULL COMMENT '当日回合持仓时长 (秒) 的中位数 (衡量典型持仓风格)',
+    `quality_avg` FLOAT           NULL COMMENT '当日回合指标的平均质量分 (0~1, 来自 metrics.quality_score 的均值)',
+    `updated_at`  TIMESTAMP(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '该行最后更新时间 (由写入Job维护)',
+    PRIMARY KEY (`project_id`, `day`),
+    KEY `idx_day` (`day`)
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_0900_ai_ci
+    COMMENT ='读模型, 项目日聚合, 把快照与回合/指标按自然日打平, 作为窗口滚动聚合的基础 日砖块';
+
+-- 读模型, 窗口KPI物化 (列表/筛选/排序直连) 
+CREATE TABLE `rm_project_kpi_window`
+(
+    `project_id`   BIGINT        NOT NULL COMMENT '项目ID (逻辑外键, 指向 exchange_project.id, 不建物理外键)',
+    `window_days`  INT           NOT NULL COMMENT '滚动窗口长度 (单位: 天), 如 30/90 等, 作为度量口径的一部分',
+    `as_of_ts`     TIMESTAMP(3)  NOT NULL COMMENT '该窗口聚合的"统计时点"时间戳 (Job写入时的时间), 用于观测新旧数据交替',
+    -- KPI: 由 rm_project_day 在后端滚动聚合而来
+    `roi`          DECIMAL(18,6)     NULL COMMENT '窗口ROI = Σ(pnl_daily)/AVG(equity_avg), 对空分母做 NULL 保护',
+    `pnl_sum`      DECIMAL(36,18)    NULL COMMENT '窗口净盈亏合计 (USDT口径)',
+    `trade_cnt`    INT               NOT NULL DEFAULT 0 COMMENT '窗口内回合数量',
+    `win_rate`     DECIMAL(18,6)     NULL COMMENT '窗口胜率 = Σ(win_cnt)/Σ(trade_cnt), 为空或无交易时为 NULL',
+    `mae_p95`      DECIMAL(18,6)     NULL COMMENT '窗口 MAE 百分比95分位 (越接近0越不扛单)',
+    `maxdd_p95`    DECIMAL(18,6)     NULL COMMENT '窗口区间最大回撤百分比的95分位 (路径回撤风险的高分位)',
+    `dur_p50_sec`  INT               NULL COMMENT '窗口内持仓时长 (秒) 的中位数 (风格节奏)',
+    `quality_avg`  FLOAT             NULL COMMENT '窗口内质量分平均值 (0~1), 低质量样本可在Job侧剔除或降权',
+    `score`        DECIMAL(18,6)     NULL COMMENT '综合评分 (0~1或任意归一口径), 由后端评分器根据 ROI/胜率/非扛单/回撤/质量加权计算',
+    `flags`        VARCHAR(128)      NULL COMMENT '风险/提示标签 (如 DATA_POOR, POSSIBLE_BAGHOLDING 等, 逗号分隔或短码)',
+    `algo_ver`     VARCHAR(16)   NOT NULL DEFAULT 'v1' COMMENT '统计/评分算法版本 (口径变更用新版本并行回写, 便于灰度与回溯)',
+    PRIMARY KEY (`project_id`, `window_days`, `algo_ver`),
+    KEY `idx_score`   (`window_days`, `score` DESC),
+    KEY `idx_updated` (`as_of_ts`)
+)
+    ENGINE=InnoDB
+    DEFAULT CHARSET=utf8mb4
+    COLLATE=utf8mb4_0900_ai_ci
+    COMMENT='读模型 · 窗口KPI物化, 列表/排行榜直接读取, 算法变更用 algo_ver 版本化, 便于灰度与回滚';
+
