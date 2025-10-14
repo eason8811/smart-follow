@@ -27,6 +27,7 @@
 
     <properties>
         <java.version>17</java.version>
+        <mysql.version>9.0.0</mysql.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok.version>1.18.30</lombok.version>
         <retrofit2.version>2.11.0</retrofit2.version>
@@ -36,15 +37,23 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>${mysql.version}</version>
+            </dependency>
+            <!-- mapstruct 结构映射依赖 -->
+            <dependency>
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
             </dependency>
+            <!-- lombok 依赖 -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
             </dependency>
+            <!-- Retrofit2 相关依赖 -->
             <dependency>
                 <groupId>com.squareup.retrofit2</groupId>
                 <artifactId>retrofit</artifactId>
@@ -55,6 +64,7 @@
                 <artifactId>converter-jackson</artifactId>
                 <version>${retrofit2.version}</version>
             </dependency>
+            <!-- jetbrains 注解依赖 -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>

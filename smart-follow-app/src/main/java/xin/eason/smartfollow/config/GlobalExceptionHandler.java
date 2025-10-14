@@ -7,12 +7,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.yaml.snakeyaml.constructor.DuplicateKeyException;
 import xin.eason.smartfollow.types.exceptions.AppException;
 import xin.eason.smartfollow.types.exceptions.IllegalParamException;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 全局异常处理器
@@ -23,6 +25,50 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /*
+    DataIntegrityViolationException.class
+    // 只处理异常信息，提取 MySQL 对 JSON 非法的提示
+        String msg = e.getMessage();
+        if (msg != null) {
+            int start = msg.indexOf("Invalid JSON text:");
+            if (start >= 0) {
+                int from = start + "Invalid JSON text:".length();
+                int end = msg.indexOf(" in value for column", from);
+                String detail = end > from
+                        ? msg.substring(from, end) + " in value for column"
+                        : msg.substring(from);
+                detail = detail.trim();
+                throw new SystemException(prefixMsg + detail);
+            }
+        }
+        throw new SystemException(prefixMsg);
+     */
+
+    /**
+     * 处理重复键异常 (DuplicateKeyException)
+     * <ul>
+     *     <li>使用 Slf4j 记录中文错误信息与异常对象 (包含堆栈)</li>
+     *     <li>从异常消息中提取重复键的具体值</li>
+     *     <li>返回标准的 400 响应, 并给出中文错误提示, 指示客户端数据中存在重复键</li>
+     * </ul>
+     *
+     * @param ex      捕获到的重复键异常
+     * @param request 当前请求对象, 用于获取请求路径等上下文信息
+     * @return 标准错误响应 (HTTP 400), 包含时间戳, 状态码, 错误信息, 自定义消息以及请求路径
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateKeyException(DuplicateKeyException ex, HttpServletRequest request) {
+        // 记录错误日志 (中文信息 + 异常堆栈)
+        int startIndex = Objects.requireNonNull(ex.getMessage()).indexOf("Duplicate entry '");
+        int endIndex = Objects.requireNonNull(ex.getMessage()).indexOf("' for key");
+        String duplicateKey = Objects.requireNonNull(ex.getMessage()).substring(startIndex + "Duplicate entry '".length(), endIndex);
+
+        log.error("[全局异常] 捕获到重复键异常: 键 '{}' 已存在, 请求路径：{}", duplicateKey, request.getRequestURI(), ex);
+
+        Map<String, Object> body = packingResponseBody(HttpStatus.BAD_REQUEST, "[数据键重复] 键 '" + duplicateKey + "' 已存在", request);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 
     /**
      * 处理非法参数异常 (IllegalParamException)
