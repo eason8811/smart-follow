@@ -26,7 +26,7 @@ import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNul
 @Slf4j
 @Getter
 @ToString
-public class ProjectTrade {
+public class ProjectTradeAggregate {
 
     // 业务身份
     /**
@@ -144,7 +144,7 @@ public class ProjectTrade {
      * @param sourcePayloadHash 源数据哈希, 如果为空或空白, 将被设置为 null
      */
     @Builder
-    private ProjectTrade(
+    private ProjectTradeAggregate(
             String tradeId,
             ProjectKey projectKey,
             ItemId item,

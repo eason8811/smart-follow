@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 交易员榜单分页数据响应
+ * 交易员榜单分页数据响应值对象
  */
 @Data
 @NoArgsConstructor

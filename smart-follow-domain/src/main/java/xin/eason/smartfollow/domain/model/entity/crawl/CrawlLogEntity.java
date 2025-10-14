@@ -21,7 +21,7 @@ import java.util.Objects;
 @Builder(toBuilder = true)
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // 兼容 ORM
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class CrawlLog {
+public class CrawlLogEntity {
 
     /**
      * 主键 ID
@@ -131,7 +131,7 @@ public class CrawlLog {
      * @param prevLog 上一次的日志
      * @return 判断结果
      */
-    public boolean sameContentAs(CrawlLog prevLog) {
+    public boolean sameContentAs(CrawlLogEntity prevLog) {
         return Boolean.TRUE.equals(this.success)
                 && Boolean.TRUE.equals(prevLog.success)
                 && Objects.equals(this.target, prevLog.target)
@@ -164,20 +164,20 @@ public class CrawlLog {
      * @param contentHash HTTP 内容哈希值
      * @return 成功的日志
      */
-    public static CrawlLog success(Exchange exchange,
-                                   String taskId,
-                                   String target,
-                                   String method,
-                                   String requestParamsJson,
-                                   String paramsHash,
-                                   Instant startedAt,
-                                   Instant finishedAt,
-                                   Integer statusCode,
-                                   Long contentLength,
-                                   String etag,
-                                   String lastModifiedRaw,
-                                   Instant lastModifiedAt,
-                                   String contentHash) {
+    public static CrawlLogEntity success(Exchange exchange,
+                                         String taskId,
+                                         String target,
+                                         String method,
+                                         String requestParamsJson,
+                                         String paramsHash,
+                                         Instant startedAt,
+                                         Instant finishedAt,
+                                         Integer statusCode,
+                                         Long contentLength,
+                                         String etag,
+                                         String lastModifiedRaw,
+                                         Instant lastModifiedAt,
+                                         String contentHash) {
 
         // 开始时间/结束时间/状态码不能为空
         requireNonNull(startedAt, "startedAt");
@@ -190,7 +190,7 @@ public class CrawlLog {
         boolean is2xx = statusCode / 100 == 2;
         boolean is304 = statusCode == 304;
 
-        return CrawlLog.builder()
+        return CrawlLogEntity.builder()
                 .exchange(exchange)
                 .taskId(taskId)
                 .target(target)
@@ -225,23 +225,23 @@ public class CrawlLog {
      * @param errorMsg 错误信息
      * @return 失败的日志
      */
-    public static CrawlLog failure(Exchange exchange,
-                                   String taskId,
-                                   String target,
-                                   String method,
-                                   String requestParamsJson,
-                                   String paramsHash,
-                                   Instant startedAt,
-                                   Instant finishedAt,
-                                   Integer statusCode,
-                                   String errorMsg) {
+    public static CrawlLogEntity failure(Exchange exchange,
+                                         String taskId,
+                                         String target,
+                                         String method,
+                                         String requestParamsJson,
+                                         String paramsHash,
+                                         Instant startedAt,
+                                         Instant finishedAt,
+                                         Integer statusCode,
+                                         String errorMsg) {
 
         // 开始时间/结束时间/状态码不能为空
         requireNonNull(startedAt, "startedAt");
         requireNonNull(finishedAt, "finishedAt");
         requireNonNull(statusCode, "statusCode");
 
-        return CrawlLog.builder()
+        return CrawlLogEntity.builder()
                 .exchange(exchange)
                 .taskId(taskId)
                 .target(target)

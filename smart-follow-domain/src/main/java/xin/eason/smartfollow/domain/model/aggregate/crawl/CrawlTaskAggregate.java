@@ -23,7 +23,7 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CrawlTask {
+public class CrawlTaskAggregate {
     // =========================== 不变字段, 构造后不改 ===========================
 
 

@@ -19,7 +19,7 @@ import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNul
  */
 @Getter
 @ToString
-public class Tombstone {
+public class TombstoneAggregate {
 
     /**
      * 项目唯一标识
@@ -55,7 +55,7 @@ public class Tombstone {
      * @param reasonMsg  不可见的原因描述
      * @param detector   触发来源, 如 OBSERVATION / RANK_GAP / DETAIL_4XX, 如果为空, 则默认为 "OBSERVATION"
      */
-    private Tombstone(ProjectKey key, Instant fromTs, String reasonCode, String reasonMsg, String detector) {
+    private TombstoneAggregate(ProjectKey key, Instant fromTs, String reasonCode, String reasonMsg, String detector) {
         requireNotNull(key, "projectKey 不能为空");
         requireNotNull(fromTs, "fromTs 不能为空");
         this.projectKey = key;
@@ -75,8 +75,8 @@ public class Tombstone {
      * @param detector   触发来源, 如 OBSERVATION / RANK_GAP / DETAIL_4XX, 如果为空, 则默认为 "OBSERVATION"
      * @return 新的 <code>Tombstone</code> 对象
      */
-    public static Tombstone open(ProjectKey key, Instant fromTs, String reasonCode, String reasonMsg, String detector) {
-        return new Tombstone(key, fromTs, reasonCode, reasonMsg, detector);
+    public static TombstoneAggregate open(ProjectKey key, Instant fromTs, String reasonCode, String reasonMsg, String detector) {
+        return new TombstoneAggregate(key, fromTs, reasonCode, reasonMsg, detector);
     }
 
     /**

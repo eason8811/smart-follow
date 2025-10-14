@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ProjectBriefVO {
     /**
-     * 项目 ID (来自于 OKX API)
+     * 交易员唯一标识码 (来源于 OKX API)
      */
     private String externalId;        // OKX: ranks[].uniqueCode
     /**

@@ -19,7 +19,7 @@ import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNul
  */
 @Getter
 @ToString
-public class ProjectSnapshot {
+public class ProjectSnapshotAggregate {
 
     private static final long MYSQL_TIMESTAMP_MIN_MS = 1_000L;               // 1970-01-01 00:00:01.000
     private static final long MYSQL_TIMESTAMP_MAX_MS = 2_147_483_647_999L;   // 2038-01-19 03:14:07.999
@@ -92,7 +92,7 @@ public class ProjectSnapshot {
      * @param rawJson      原始快照 JSON 文本, 按来源保存
      */
     @Builder
-    private ProjectSnapshot(
+    private ProjectSnapshotAggregate(
             ProjectKey projectKey,
             Instant snapshotTs,
             SnapshotSource source,
