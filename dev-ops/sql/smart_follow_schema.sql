@@ -192,10 +192,15 @@ CREATE TABLE `exchange_project_trade_metrics`
 CREATE TABLE `tombstone`
 (
     `project_id`       BIGINT       NOT NULL COMMENT '逻辑外键, 指向 exchange_project.id',
-    `disappeared_at`   TIMESTAMP(3) NOT NULL COMMENT '第一次从可见转为缺失/隐藏的时间',
-    `last_snapshot_id` BIGINT       NULL COMMENT '消失前最后一次快照ID (逻辑外键)',
-    `reason`           VARCHAR(255) NULL COMMENT '可选原因 (如下架/清退/改名等)',
-    PRIMARY KEY (`project_id`, `disappeared_at`),
+    `fromTs`           TIMESTAMP(3) NOT NULL COMMENT '第一次从可见转为缺失/隐藏的时间',
+    `toTs`             TIMESTAMP(3) NULL COMMENT '不可见状态结束时间 (为空则表示仍处于不可见)',
+    `last_snapshot_id` BIGINT       NULL COMMENT '消失前最后一次快照ID (逻辑外键, 指向 exchange_project_snapshot.id)',
+    `reason_code`      VARCHAR(16)  NULL COMMENT '原因代码 (如下架/清退/改名等)',
+    `reason_msg`       VARCHAR(255) NULL COMMENT '原因信息 (如下架/清退/改名等)',
+    `detector`         VARCHAR(128) NULL COMMENT '触发来源',
+    `created_at`       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    `updated_at`       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    PRIMARY KEY (`project_id`, `fromTs`),
     KEY `idx_last_snap` (`last_snapshot_id`) USING BTREE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -320,27 +325,27 @@ CREATE TABLE `rm_project_day`
 -- 读模型, 窗口KPI物化 (列表/筛选/排序直连) 
 CREATE TABLE `rm_project_kpi_window`
 (
-    `project_id`   BIGINT        NOT NULL COMMENT '项目ID (逻辑外键, 指向 exchange_project.id, 不建物理外键)',
-    `window_days`  INT           NOT NULL COMMENT '滚动窗口长度 (单位: 天), 如 30/90 等, 作为度量口径的一部分',
-    `as_of_ts`     TIMESTAMP(3)  NOT NULL COMMENT '该窗口聚合的"统计时点"时间戳 (Job写入时的时间), 用于观测新旧数据交替',
+    `project_id`  BIGINT          NOT NULL COMMENT '项目ID (逻辑外键, 指向 exchange_project.id, 不建物理外键)',
+    `window_days` INT             NOT NULL COMMENT '滚动窗口长度 (单位: 天), 如 30/90 等, 作为度量口径的一部分',
+    `as_of_ts`    TIMESTAMP(3)    NOT NULL COMMENT '该窗口聚合的"统计时点"时间戳 (Job写入时的时间), 用于观测新旧数据交替',
     -- KPI: 由 rm_project_day 在后端滚动聚合而来
-    `roi`          DECIMAL(18,6)     NULL COMMENT '窗口ROI = Σ(pnl_daily)/AVG(equity_avg), 对空分母做 NULL 保护',
-    `pnl_sum`      DECIMAL(36,18)    NULL COMMENT '窗口净盈亏合计 (USDT口径)',
-    `trade_cnt`    INT               NOT NULL DEFAULT 0 COMMENT '窗口内回合数量',
-    `win_rate`     DECIMAL(18,6)     NULL COMMENT '窗口胜率 = Σ(win_cnt)/Σ(trade_cnt), 为空或无交易时为 NULL',
-    `mae_p95`      DECIMAL(18,6)     NULL COMMENT '窗口 MAE 百分比95分位 (越接近0越不扛单)',
-    `maxdd_p95`    DECIMAL(18,6)     NULL COMMENT '窗口区间最大回撤百分比的95分位 (路径回撤风险的高分位)',
-    `dur_p50_sec`  INT               NULL COMMENT '窗口内持仓时长 (秒) 的中位数 (风格节奏)',
-    `quality_avg`  FLOAT             NULL COMMENT '窗口内质量分平均值 (0~1), 低质量样本可在Job侧剔除或降权',
-    `score`        DECIMAL(18,6)     NULL COMMENT '综合评分 (0~1或任意归一口径), 由后端评分器根据 ROI/胜率/非扛单/回撤/质量加权计算',
-    `flags`        VARCHAR(128)      NULL COMMENT '风险/提示标签 (如 DATA_POOR, POSSIBLE_BAGHOLDING 等, 逗号分隔或短码)',
-    `algo_ver`     VARCHAR(16)   NOT NULL DEFAULT 'v1' COMMENT '统计/评分算法版本 (口径变更用新版本并行回写, 便于灰度与回溯)',
+    `roi`         DECIMAL(18, 6)  NULL COMMENT '窗口ROI = Σ(pnl_daily)/AVG(equity_avg), 对空分母做 NULL 保护',
+    `pnl_sum`     DECIMAL(36, 18) NULL COMMENT '窗口净盈亏合计 (USDT口径)',
+    `trade_cnt`   INT             NOT NULL DEFAULT 0 COMMENT '窗口内回合数量',
+    `win_rate`    DECIMAL(18, 6)  NULL COMMENT '窗口胜率 = Σ(win_cnt)/Σ(trade_cnt), 为空或无交易时为 NULL',
+    `mae_p95`     DECIMAL(18, 6)  NULL COMMENT '窗口 MAE 百分比95分位 (越接近0越不扛单)',
+    `maxdd_p95`   DECIMAL(18, 6)  NULL COMMENT '窗口区间最大回撤百分比的95分位 (路径回撤风险的高分位)',
+    `dur_p50_sec` INT             NULL COMMENT '窗口内持仓时长 (秒) 的中位数 (风格节奏)',
+    `quality_avg` FLOAT           NULL COMMENT '窗口内质量分平均值 (0~1), 低质量样本可在Job侧剔除或降权',
+    `score`       DECIMAL(18, 6)  NULL COMMENT '综合评分 (0~1或任意归一口径), 由后端评分器根据 ROI/胜率/非扛单/回撤/质量加权计算',
+    `flags`       VARCHAR(128)    NULL COMMENT '风险/提示标签 (如 DATA_POOR, POSSIBLE_BAGHOLDING 等, 逗号分隔或短码)',
+    `algo_ver`    VARCHAR(16)     NOT NULL DEFAULT 'v1' COMMENT '统计/评分算法版本 (口径变更用新版本并行回写, 便于灰度与回溯)',
     PRIMARY KEY (`project_id`, `window_days`, `algo_ver`),
-    KEY `idx_score`   (`window_days`, `score` DESC),
+    KEY `idx_score` (`window_days`, `score` DESC),
     KEY `idx_updated` (`as_of_ts`)
 )
-    ENGINE=InnoDB
-    DEFAULT CHARSET=utf8mb4
-    COLLATE=utf8mb4_0900_ai_ci
-    COMMENT='读模型 · 窗口KPI物化, 列表/排行榜直接读取, 算法变更用 algo_ver 版本化, 便于灰度与回滚';
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8mb4
+    COLLATE = utf8mb4_0900_ai_ci
+    COMMENT ='读模型 · 窗口KPI物化, 列表/排行榜直接读取, 算法变更用 algo_ver 版本化, 便于灰度与回滚';
 
