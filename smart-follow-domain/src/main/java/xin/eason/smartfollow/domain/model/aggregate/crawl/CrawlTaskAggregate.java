@@ -25,8 +25,6 @@ import java.time.Instant;
 @AllArgsConstructor
 public class CrawlTaskAggregate {
     // =========================== 不变字段, 构造后不改 ===========================
-
-
     /**
      * 数据库主键ID
      */
@@ -48,7 +46,7 @@ public class CrawlTaskAggregate {
      */
     private String paramsJson;
     /**
-     * 窗口键 (如 dataVer=20231129213200) , 用于唯一键组成部分之一
+     * 窗口键 (如 {@code dataVer=20231129213200}) , 用于唯一键组成部分之一
      */
     private String windowKey;
     /**

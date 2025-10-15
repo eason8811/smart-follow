@@ -10,6 +10,7 @@ import xin.eason.smartfollow.types.enums.OrderType;
 import xin.eason.smartfollow.types.enums.TradeSide;
 import xin.eason.smartfollow.types.enums.TradeStatus;
 import xin.eason.smartfollow.types.exceptions.AppException;
+import xin.eason.smartfollow.types.exceptions.IllegalParamException;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -17,11 +18,10 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 
-import static xin.eason.smartfollow.types.utils.FieldValidateUtils.require;
-import static xin.eason.smartfollow.types.utils.FieldValidateUtils.requireNotNull;
+import static xin.eason.smartfollow.types.utils.FieldValidateUtils.*;
 
 /**
- * 单笔成交记录聚合根 (事实记录)
+ * 单个仓位回合聚合根 (事实记录)
  */
 @Slf4j
 @Getter
@@ -30,11 +30,11 @@ public class ProjectTradeAggregate {
 
     // 业务身份
     /**
-     * 仓位回合 ID 优先使用交易所成交ID, 没有则生成合成ID
+     * <b>仓位回合 ID</b> 优先使用交易所成交 ID, 没有则生成合成 ID
      */
     private final String tradeId;
     /**
-     * 带单项目 ID 由交易所和外部唯一 ID 组成 (如: OKX:123xxx)
+     * 带单项目 ID 由交易所和外部唯一 ID 组成 (如: {@code OKX:123xxx})
      *
      * @see ProjectKey
      */
@@ -205,19 +205,31 @@ public class ProjectTradeAggregate {
     }
 
     /* 内部工具方法 */
-    private static Instant ensureMillis(Instant t) {
-        return Instant.ofEpochMilli(t.toEpochMilli());
+
+    /**
+     * 确保给定的 {@link Instant} 对象是以毫秒为单位进行表示
+     *
+     * @param ts 需要转换为以毫秒为单位的时间戳
+     * @return 一个新的 {@link Instant} 对象, 它是基于输入参数 <code>ts</code> 的毫秒值创建的
+     */
+    private static Instant ensureMillis(Instant ts) {
+        return Instant.ofEpochMilli(ts.toEpochMilli());
     }
 
     /**
-     * 将给定的字符串 <code>s</code> 转换为 null, 如果它是空白或 null.
+     * 将给定的字符串 <code>str</code> 转换为 null, 如果它是空白或 null.
      * 空白定义为仅包含空格、制表符、换行符等不可见字符的字符串。
      *
-     * @param s 需要检查是否为空白或 null 的字符串
-     * @return 如果 <code>s</code> 为 null 或是空白, 返回 null; 否则返回原始字符串 <code>s</code>
+     * @param str 需要检查是否为空白或 null 的字符串
+     * @return 如果 <code>str</code> 为 null 或是空白, 返回 null; 否则返回原始字符串 <code>str</code>
      */
-    private static String nullIfBlank(String s) {
-        return (s == null || s.isBlank()) ? null : s;
+    private static String nullIfBlank(String str) {
+        try {
+            requireNotBlank(str, "str 为 null 或空白");
+        } catch (IllegalParamException e) {
+            return null;
+        }
+        return str;
     }
 
     /**
@@ -230,12 +242,12 @@ public class ProjectTradeAggregate {
      */
     private static String ensureHash(String hash) {
         if (hash == null || hash.length() != 64)
-            throw AppException.of("sourcePayloadHash 必须为 64 位十六进制");
+            throw AppException.of("源请求负载哈希值 sourcePayloadHash 必须为 64 位十六进制");
         return hash.toLowerCase();
     }
 
     /**
-     * 生成一个合成的 tradeId. 该 ID 是基于提供的参数使用 SHA-256 算法进行哈希计算后得到的结果.
+     * 生成一个合成的 {@code tradeId} 该 ID 是基于提供的参数使用 {@code SHA-256} 算法进行哈希计算后得到的结果.
      *
      * @param key       项目键, 不能为空
      * @param inst      标的标识符, 不能为空
@@ -244,7 +256,7 @@ public class ProjectTradeAggregate {
      * @param qty       数量, 可以为空, 如果不为空则必须大于 0
      * @param price     价格, 可以为空, 如果不为空则必须大于 0
      * @param source    交易来源, 不能为空且非空白
-     * @return 返回通过 SHA-256 哈希算法生成的字符串形式的 tradeId
+     * @return 返回通过 {@code SHA-256} 哈希算法生成的字符串形式的 {@code tradeId}
      * @throws AppException 如果在生成过程中遇到任何异常, 将抛出此异常, 携带具体的错误信息
      */
     public static String synthesizeId(ProjectKey key, ItemId inst, TradeSide side,
